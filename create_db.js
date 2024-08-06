@@ -42,7 +42,7 @@ const universityCourses = {
   ]
 };
 
-db.serialize(async () => {
+db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS universities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE
@@ -56,32 +56,58 @@ db.serialize(async () => {
     FOREIGN KEY (university_id) REFERENCES universities(id)
   )`);
 
+  db.run(`CREATE TABLE IF NOT EXISTS session (
+    id TEXT PRIMARY KEY
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS sessioncourse (
+    session_id TEXT, 
+    course_id INTEGER,
+    grade REAL default 0.0,
+    FOREIGN KEY (session_id) REFERENCES sessions(id),
+    FOREIGN KEY (course_id) REFERENCES courses(id)
+  )`);
+
   const insertUniversity = `INSERT OR IGNORE INTO universities (name) VALUES (?)`;
   const insertCourse = `INSERT INTO courses (university_id, name, ects) VALUES (?, ?, ?)`;
 
-  for (const [university, courses] of Object.entries(universityCourses)) {
-    await new Promise((resolve, reject) => {
+  const universityPromises = Object.entries(universityCourses).map(([university, courses]) =>
+    new Promise((resolve, reject) => {
       db.run(insertUniversity, [university], function(err) {
         if (err) {
           reject(err);
         } else {
           const universityId = this.lastID;
+          const coursePromises = courses.map(course =>
+            new Promise((courseResolve, courseReject) => {
+              db.run(insertCourse, [universityId, course.name, course.ects], function(courseErr) {
+                if (courseErr) {
+                  courseReject(courseErr);
+                } else {
+                  courseResolve();
+                }
+              });
+            })
+          );
 
-          const stmt = db.prepare(insertCourse);
-          courses.forEach(course => {
-            stmt.run(universityId, course.name, course.ects);
-          });
-          stmt.finalize();
-          resolve();
+          Promise.all(coursePromises)
+            .then(() => resolve())
+            .catch(reject);
         }
       });
-    });
-  }
+    })
+  );
 
-  db.close(err => {
-    if (err) {
-      return console.error(err.message);
-    }
-    console.log('Database created and populated with initial data');
+  Promise.all(universityPromises).then(() => {
+    console.log('All universities and courses have been inserted.');
+    db.close(err => {
+      if (err) {
+        console.error(err.message);
+      } else {
+        console.log('Database connection closed successfully.');
+      }
+    });
+  }).catch(err => {
+    console.error('An error occurred:', err);
   });
 });
