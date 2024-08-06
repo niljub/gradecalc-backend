@@ -12,7 +12,6 @@ app.use(cors()); // Enable CORS for all routes
 app.get('/api/courses/:university', (req, res) => {
     const db = new sqlite3.Database('universityCourses.db');
     const university = req.params.university;
-    console.log(university);
     db.serialize(() => {
         db.get(`SELECT id FROM universities WHERE name = ?`, [university], (err, row) => {
             if (err) {
