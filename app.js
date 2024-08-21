@@ -77,7 +77,7 @@ app.post('/api/session/', (req, res) => {
             const courseInserts = courses.map(course => {
                 return new Promise((resolve, reject) => {
                     db.run(`INSERT INTO courses (id, university_id, name, ects) VALUES (?, ?, ?, ?)`,
-                        [null, course.university_id, course.name, course.ects], function(err) {
+                        [null, null, course.name, course.ects], function(err) {
                             if (err) {
                                 return reject(err);
                             }
